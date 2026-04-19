@@ -242,11 +242,17 @@
         </section>
     </main>
 
-    <!-- Toast Notification -->
-    <div id="toast" class="toast fixed top-20 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
-        <div class="flex items-center">
-            <i class="fas fa-check-circle mr-2"></i>
-            <span id="toastMessage">Operación exitosa</span>
+    <!-- Modal Component -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="glass-effect rounded-2xl p-8 max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0" id="modalContent">
+            <div class="flex items-center mb-4">
+                <div id="modalIcon" class="mr-3"></div>
+                <h3 id="modalTitle" class="text-xl font-bold text-gray-800"></h3>
+            </div>
+            <p id="modalMessage" class="text-gray-600 mb-6"></p>
+            <div id="modalActions" class="flex justify-end space-x-3">
+                <!-- Actions will be inserted here -->
+            </div>
         </div>
     </div>
 

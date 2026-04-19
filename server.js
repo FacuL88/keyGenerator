@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const { keyGen } = require('./keyGen');
-const { addUser, userList } = require('./database');
+const { addUser, userList, deleteUser } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,6 +38,29 @@ app.post('/api/users', (req, res) => {
             success: true, 
             message: 'Usuario guardado correctamente',
             data: users 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.delete('/api/users', (req, res) => {
+    try {
+        const { name, fecha } = req.body;
+        
+        if (!name || !fecha) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Nombre y fecha son requeridos' 
+            });
+        }
+
+        const updatedUsers = deleteUser(name.trim(), fecha);
+        
+        res.json({ 
+            success: true, 
+            message: 'Usuario eliminado correctamente',
+            data: updatedUsers 
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });

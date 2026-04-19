@@ -63,10 +63,10 @@ async function generatePassword() {
             document.getElementById('generatedPassword').value = currentPassword;
             updatePasswordStrength(currentPassword);
         } else {
-            showToast('Error al generar contraseña', 'error');
+            showNotification('Error al generar contraseña', 'error');
         }
     } catch (error) {
-        showToast('Error de conexión', 'error');
+        showNotification('Error de conexión', 'error');
     }
 }
 
@@ -122,13 +122,13 @@ function copyPassword() {
     const passwordInput = document.getElementById('generatedPassword');
     
     if (!passwordInput.value) {
-        showToast('No hay contraseña para copiar', 'warning');
+        showNotification('No hay contraseña para copiar', 'warning');
         return;
     }
     
     passwordInput.select();
     document.execCommand('copy');
-    showToast('Contraseña copiada al portapapeles', 'success');
+    showNotification('Contraseña copiada al portapapeles', 'success');
 }
 
 // Save user
@@ -137,12 +137,12 @@ async function saveUser() {
     const password = document.getElementById('generatedPassword').value;
     
     if (!username) {
-        showToast('Por favor ingrese un nombre de usuario', 'warning');
+        showNotification('Por favor ingrese un nombre de usuario', 'warning');
         return;
     }
     
     if (!password) {
-        showToast('Por favor genere una contraseña primero', 'warning');
+        showNotification('Por favor genere una contraseña primero', 'warning');
         return;
     }
     
@@ -158,17 +158,17 @@ async function saveUser() {
         const result = await response.json();
         
         if (result.success) {
-            showToast('Usuario guardado correctamente', 'success');
+            showNotification('Usuario guardado correctamente', 'success');
             document.getElementById('username').value = '';
             document.getElementById('generatedPassword').value = '';
             currentPassword = '';
             loadUsers();
             updateStats();
         } else {
-            showToast(result.error || 'Error al guardar usuario', 'error');
+            showNotification(result.error || 'Error al guardar usuario', 'error');
         }
     } catch (error) {
-        showToast('Error de conexión', 'error');
+        showNotification('Error de conexión', 'error');
     }
 }
 
@@ -183,10 +183,10 @@ async function loadUsers() {
             displayUsers(users);
             updateUserCount(users.length);
         } else {
-            showToast('Error al cargar usuarios', 'error');
+            showNotification('Error al cargar usuarios', 'error');
         }
     } catch (error) {
-        showToast('Error de conexión', 'error');
+        showNotification('Error de conexión', 'error');
     }
 }
 
@@ -225,8 +225,15 @@ function displayUsers(usersToShow) {
                         ${formatDate(user.fecha)}
                     </div>
                 </div>
-                <div class="ml-4">
+                <div class="ml-4 flex items-center space-x-2">
                     <div class="w-2 h-2 rounded-full ${getPasswordStrengthColor(user.passwd)}"></div>
+                    <button 
+                        onclick="deleteUser('${escapeHtml(user.name)}', '${user.fecha}')"
+                        class="text-red-500 hover:text-red-700 transition-colors p-1"
+                        title="Eliminar usuario"
+                    >
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
             </div>
         </div>
@@ -245,7 +252,7 @@ function searchUsers() {
 // Refresh users list
 function refreshUsers() {
     loadUsers();
-    showToast('Lista actualizada', 'success');
+    showNotification('Lista actualizada', 'success');
 }
 
 // Update statistics
@@ -269,10 +276,24 @@ async function updateStats() {
 // Copy user password
 function copyUserPassword(password) {
     navigator.clipboard.writeText(password).then(() => {
-        showToast('Contraseña copiada al portapapeles', 'success');
+        showNotification('Contraseña copiada al portapapeles', 'success');
     }).catch(() => {
-        showToast('Error al copiar contraseña', 'error');
+        showNotification('Error al copiar contraseña', 'error');
     });
+}
+
+// Delete user
+async function deleteUser(name, fecha) {
+    const actions = `
+        <button onclick="closeModal()" class="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition-colors">
+            Cancelar
+        </button>
+        <button onclick="confirmDeleteUser('${escapeHtml(name)}', '${fecha}')" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors">
+            Eliminar
+        </button>
+    `;
+    
+    showModal('Confirmar Eliminación', `¿Estás seguro de que quieres eliminar al usuario "${name}"?`, 'question', actions);
 }
 
 // Utility functions
@@ -320,43 +341,128 @@ function updateUserCount(count) {
     document.getElementById('userCount').textContent = `${count} usuario${count !== 1 ? 's' : ''}`;
 }
 
-// Show toast notification
-function showToast(message, type = 'success') {
-    const toast = document.getElementById('toast');
-    const toastMessage = document.getElementById('toastMessage');
+// Modal system
+function showModal(title, message, type = 'info', actions = null) {
+    const modal = document.getElementById('modal');
+    const modalContent = document.getElementById('modalContent');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalMessage = document.getElementById('modalMessage');
+    const modalIcon = document.getElementById('modalIcon');
+    const modalActions = document.getElementById('modalActions');
     
-    // Set message
-    toastMessage.textContent = message;
+    // Set content
+    modalTitle.textContent = title;
+    modalMessage.textContent = message;
     
-    // Set background color based on type
-    toast.className = 'toast fixed top-20 right-4 px-6 py-3 rounded-lg shadow-lg z-50';
-    
+    // Set icon based on type
+    let iconHtml = '';
     switch(type) {
         case 'success':
-            toast.classList.add('bg-green-500', 'text-white');
+            iconHtml = '<i class="fas fa-check-circle text-green-500 text-2xl"></i>';
             break;
         case 'error':
-            toast.classList.add('bg-red-500', 'text-white');
+            iconHtml = '<i class="fas fa-exclamation-circle text-red-500 text-2xl"></i>';
             break;
         case 'warning':
-            toast.classList.add('bg-yellow-500', 'text-white');
+            iconHtml = '<i class="fas fa-exclamation-triangle text-yellow-500 text-2xl"></i>';
+            break;
+        case 'question':
+            iconHtml = '<i class="fas fa-question-circle text-blue-500 text-2xl"></i>';
             break;
         default:
-            toast.classList.add('bg-gray-500', 'text-white');
+            iconHtml = '<i class="fas fa-info-circle text-blue-500 text-2xl"></i>';
+    }
+    modalIcon.innerHTML = iconHtml;
+    
+    // Set actions
+    if (actions) {
+        modalActions.innerHTML = actions;
+    } else {
+        modalActions.innerHTML = `
+            <button onclick="closeModal()" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                Aceptar
+            </button>
+        `;
     }
     
-    // Show toast
+    // Show modal with animation
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
     setTimeout(() => {
-        toast.classList.add('show');
-    }, 100);
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+function closeModal() {
+    const modal = document.getElementById('modal');
+    const modalContent = document.getElementById('modalContent');
     
-    // Hide toast after 3 seconds
+    // Hide modal with animation
+    modalContent.classList.remove('scale-100', 'opacity-100');
+    modalContent.classList.add('scale-95', 'opacity-0');
+    
     setTimeout(() => {
-        toast.classList.remove('show');
-    }, 3000);
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 300);
+}
+
+// Show modal notification (replaces showToast)
+function showNotification(message, type = 'success') {
+    let title = '';
+    switch(type) {
+        case 'success':
+            title = '¡Éxito!';
+            break;
+        case 'error':
+            title = 'Error';
+            break;
+        case 'warning':
+            title = 'Advertencia';
+            break;
+        case 'info':
+            title = 'Información';
+            break;
+        default:
+            title = 'Notificación';
+    }
+    
+    showModal(title, message, type);
 }
 
 // Theme toggle (placeholder for future implementation)
 function toggleTheme() {
-    showToast('Modo oscuro próximamente', 'info');
+    showNotification('Modo oscuro próximamente', 'info');
+}
+
+// Confirm delete user function
+function confirmDeleteUser(name, fecha) {
+    closeModal();
+    deleteUserAction(name, fecha);
+}
+
+// Actual delete function
+async function deleteUserAction(name, fecha) {
+    try {
+        const response = await fetch('/api/users', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name, fecha })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Usuario eliminado correctamente', 'success');
+            loadUsers();
+            updateStats();
+        } else {
+            showNotification(result.error || 'Error al eliminar usuario', 'error');
+        }
+    } catch (error) {
+        showNotification('Error de conexión', 'error');
+    }
 }

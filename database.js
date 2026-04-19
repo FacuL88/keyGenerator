@@ -30,4 +30,14 @@ function userList() {
   return leerUsuarios();
 }
 
-module.exports = { addUser, userList };
+// Eliminar un usuario por nombre y fecha
+function deleteUser(name, fecha) {
+  const usuarios = leerUsuarios();
+  const filteredUsers = usuarios.filter(user => 
+    !(user.name.trim() === name.trim() && user.fecha === fecha)
+  );
+  guardarUsuarios(filteredUsers);
+  return filteredUsers;
+}
+
+module.exports = { addUser, userList, deleteUser };
