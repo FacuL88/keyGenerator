@@ -1,6 +1,6 @@
 [build]
   base = "/"
-  command = "npm install && npm run build"
+  command = "npm run build"
   publish = "public"
 
 [build.environment]
@@ -8,7 +8,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to = "/.netlify/functions/server"
   status = 200
 
 [[headers]]
@@ -20,7 +20,7 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
 
 [context.production]
-  command = "npm install && npm run build"
+  command = "npm run build"
 
 [context.deploy-preview]
-  command = "npm install && npm run build"
+  command = "npm run build"
