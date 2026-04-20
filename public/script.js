@@ -195,50 +195,64 @@ function displayUsers(usersToShow) {
     const usersList = document.getElementById('usersList');
     const emptyState = document.getElementById('emptyState');
     
+    // Validación adicional
+    if (!usersToShow || !Array.isArray(usersToShow)) {
+        console.error('usersToShow no es un array válido:', usersToShow);
+        usersToShow = [];
+    }
+    
     if (usersToShow.length === 0) {
-        usersList.innerHTML = '';
-        emptyState.classList.remove('hidden');
+        if (usersList) usersList.innerHTML = '';
+        if (emptyState) emptyState.classList.remove('hidden');
         return;
     }
     
-    emptyState.classList.add('hidden');
+    if (emptyState) emptyState.classList.add('hidden');
     
-    usersList.innerHTML = usersToShow.map(user => `
-        <div class="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-            <div class="flex items-center justify-between">
-                <div class="flex-1">
-                    <div class="flex items-center space-x-2">
-                        <i class="fas fa-user-circle text-purple-600"></i>
-                        <h4 class="font-semibold text-gray-800">${escapeHtml(user.name)}</h4>
+    // Validar que cada usuario tenga las propiedades necesarias
+    const validUsers = usersToShow.filter(user => 
+        user && typeof user === 'object' && user.name && user.fecha
+    );
+    
+    if (usersList) {
+        usersList.innerHTML = validUsers.map(user => `
+            <div class="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-user-circle text-purple-600"></i>
+                            <h4 class="font-semibold text-gray-800">${escapeHtml(user.name)}</h4>
+                        </div>
+                        <div class="mt-2 flex items-center space-x-4 text-sm text-gray-600">
+                            <span class="flex items-center">
+                                <i class="fas fa-key mr-1 text-gray-400"></i>
+                                <span class="font-mono">${maskPassword(user.passwd)}</span>
+                            </span>
+                            <button onclick="copyUserPassword('${escapeHtml(user.passwd)}')" class="text-purple-600 hover:text-purple-800">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="mt-1 text-xs text-gray-500">
+                            <i class="fas fa-clock mr-1"></i>
+                            ${formatDate(user.fecha)}
+                        </div>
                     </div>
-                    <div class="mt-2 flex items-center space-x-4 text-sm text-gray-600">
-                        <span class="flex items-center">
-                            <i class="fas fa-key mr-1 text-gray-400"></i>
-                            <span class="font-mono">${maskPassword(user.passwd)}</span>
-                        </span>
-                        <button onclick="copyUserPassword('${escapeHtml(user.passwd)}')" class="text-purple-600 hover:text-purple-800">
-                            <i class="fas fa-copy"></i>
+                    <div class="ml-4 flex items-center space-x-2">
+                        <div class="w-2 h-2 rounded-full ${getPasswordStrengthColor(user.passwd)}"></div>
+                        <button 
+                            onclick="deleteUser('${escapeHtml(user.name)}', '${user.fecha}')" 
+                            class="text-red-500 hover:text-red-700 transition-colors p-1" 
+                            title="Eliminar usuario"
+                        >
+                            <i class="fas fa-trash"></i>
                         </button>
                     </div>
-                    <div class="mt-1 text-xs text-gray-500">
-                        <i class="fas fa-clock mr-1"></i>
-                        ${formatDate(user.fecha)}
-                    </div>
-                </div>
-                <div class="ml-4 flex items-center space-x-2">
-                    <div class="w-2 h-2 rounded-full ${getPasswordStrengthColor(user.passwd)}"></div>
-                    <button 
-                        onclick="deleteUser('${escapeHtml(user.name)}', '${user.fecha}')"
-                        class="text-red-500 hover:text-red-700 transition-colors p-1"
-                        title="Eliminar usuario"
-                    >
-                        <i class="fas fa-trash"></i>
-                    </button>
                 </div>
             </div>
-        </div>
-    `).join('');
+        `).join('');
+    }
 }
+
 
 // Search users
 function searchUsers() {

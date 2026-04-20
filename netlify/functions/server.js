@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
-const { keyGen } = require('../../keyGen');
-const { addUser, userList, deleteUser } = require('../../database');
+const { keyGen } = require('./keyGen');
+const { addUser, userList, deleteUser } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
