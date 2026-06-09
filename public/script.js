@@ -1,6 +1,7 @@
 // Global variables
 let currentPassword = '';
 let users = [];
+const STORAGE_KEY = 'keygen_users';
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', function() {
@@ -37,8 +38,15 @@ function setupEventListeners() {
     });
 }
 
-// Generate password
-async function generatePassword() {
+// Cryptographically secure random number generator
+function getSecureRandomInt(max) {
+    const array = new Uint32Array(1);
+    window.crypto.getRandomValues(array);
+    return array[0] % max;
+}
+
+// Generate password (now using crypto.getRandomValues for security)
+function generatePassword() {
     const length = parseInt(document.getElementById('passwordLength').value);
     const options = {
         uppercase: document.getElementById('uppercase').checked,
@@ -48,25 +56,27 @@ async function generatePassword() {
     };
 
     try {
-        const response = await fetch('/api/generate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ length, options })
-        });
-
-        const result = await response.json();
+        let characters = '';
+        if (options.uppercase !== false) characters += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        if (options.lowercase !== false) characters += 'abcdefghijklmnopqrstuvwxyz';
+        if (options.numbers !== false) characters += '0123456789';
+        if (options.symbols !== false) characters += '!@#$%^&*+=/<>';
         
-        if (result.success) {
-            currentPassword = result.data.password;
-            document.getElementById('generatedPassword').value = currentPassword;
-            updatePasswordStrength(currentPassword);
-        } else {
-            showNotification('Error al generar contraseña', 'error');
+        if (!characters) {
+            characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*+=/<>';
         }
+        
+        let password = '';
+        for (let i = 0; i < length; i++) {
+            const index = getSecureRandomInt(characters.length);
+            password += characters[index];
+        }
+        
+        currentPassword = password;
+        document.getElementById('generatedPassword').value = currentPassword;
+        updatePasswordStrength(currentPassword);
     } catch (error) {
-        showNotification('Error de conexión', 'error');
+        showNotification('Error al generar contraseña', 'error');
     }
 }
 
@@ -131,13 +141,26 @@ function copyPassword() {
     showNotification('Contraseña copiada al portapapeles', 'success');
 }
 
-// Save user
+// Validate username input
+function validateUsername(username) {
+    if (!username || username.trim().length === 0) {
+        return false;
+    }
+    if (username.length > 50) {
+        return false;
+    }
+    // Allow only alphanumeric, spaces, and common special characters
+    const validPattern = /^[a-zA-Z0-9\s\-_.@]+$/;
+    return validPattern.test(username);
+}
+
+// Save user (now using localStorage with basic encryption)
 async function saveUser() {
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('generatedPassword').value;
     
-    if (!username) {
-        showNotification('Por favor ingrese un nombre de usuario', 'warning');
+    if (!validateUsername(username)) {
+        showNotification('Nombre de usuario inválido. Use solo letras, números y caracteres comunes.', 'warning');
         return;
     }
     
@@ -147,46 +170,43 @@ async function saveUser() {
     }
     
     try {
-        const response = await fetch('/api/users', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name: username, password })
-        });
-
-        const result = await response.json();
+        const fecha = new Date().toISOString();
+        // Basic encoding (not encryption, but better than plain text for portfolio)
+        const encodedPassword = btoa(password);
+        const newUser = { name: username, passwd: encodedPassword, fecha };
         
-        if (result.success) {
-            showNotification('Usuario guardado correctamente', 'success');
-            document.getElementById('username').value = '';
-            document.getElementById('generatedPassword').value = '';
-            currentPassword = '';
-            loadUsers();
-            updateStats();
-        } else {
-            showNotification(result.error || 'Error al guardar usuario', 'error');
-        }
+        // Get existing users from localStorage
+        const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        storedUsers.push(newUser);
+        
+        // Save to localStorage
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(storedUsers));
+        
+        showNotification('Usuario guardado correctamente', 'success');
+        document.getElementById('username').value = '';
+        document.getElementById('generatedPassword').value = '';
+        currentPassword = '';
+        loadUsers();
+        updateStats();
     } catch (error) {
-        showNotification('Error de conexión', 'error');
+        showNotification('Error al guardar usuario', 'error');
     }
 }
 
-// Load users from server
+// Load users from localStorage
 async function loadUsers() {
     try {
-        const response = await fetch('/api/users');
-        const result = await response.json();
-        
-        if (result.success) {
-            users = result.data;
-            displayUsers(users);
-            updateUserCount(users.length);
-        } else {
-            showNotification('Error al cargar usuarios', 'error');
-        }
+        const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        // Decode passwords for display
+        users = storedUsers.map(user => ({
+            ...user,
+            passwd: atob(user.passwd)
+        }));
+        displayUsers(users);
+        updateUserCount(users.length);
     } catch (error) {
-        showNotification('Error de conexión', 'error');
+        console.error('Error loading users from localStorage:', error);
+        showNotification('Error al cargar usuarios', 'error');
     }
 }
 
@@ -240,8 +260,8 @@ function displayUsers(usersToShow) {
                     <div class="ml-4 flex items-center space-x-2">
                         <div class="w-2 h-2 rounded-full ${getPasswordStrengthColor(user.passwd)}"></div>
                         <button 
-                            onclick="deleteUser('${escapeHtml(user.name)}', '${user.fecha}')" 
-                            class="text-red-500 hover:text-red-700 transition-colors p-1" 
+                            onclick="deleteUser('${escapeHtml(user.name)}', '${user.fecha}')"
+                            class="text-red-500 hover:text-red-700 transition-colors p-1"
                             title="Eliminar usuario"
                         >
                             <i class="fas fa-trash"></i>
@@ -252,7 +272,6 @@ function displayUsers(usersToShow) {
         `).join('');
     }
 }
-
 
 // Search users
 function searchUsers() {
@@ -269,21 +288,27 @@ function refreshUsers() {
     showNotification('Lista actualizada', 'success');
 }
 
-// Update statistics
+// Update statistics (now calculated locally)
 async function updateStats() {
     try {
-        const response = await fetch('/api/stats');
-        const result = await response.json();
+        const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const today = new Date().toISOString().split('T')[0];
         
-        if (result.success) {
-            const stats = result.data;
-            document.getElementById('totalUsers').textContent = stats.totalUsers;
-            document.getElementById('todayUsers').textContent = stats.todayUsers;
-            document.getElementById('avgPasswordLength').textContent = stats.avgPasswordLength;
-            document.getElementById('strongPasswords').textContent = stats.strongPasswords;
-        }
+        const stats = {
+            totalUsers: storedUsers.length,
+            todayUsers: storedUsers.filter(user => user.fecha && user.fecha.startsWith(today)).length,
+            avgPasswordLength: storedUsers.length > 0 
+                ? Math.round(storedUsers.reduce((sum, user) => sum + (user.passwd?.length || 0), 0) / storedUsers.length)
+                : 0,
+            strongPasswords: storedUsers.filter(user => user.passwd && user.passwd.length >= 16).length
+        };
+        
+        document.getElementById('totalUsers').textContent = stats.totalUsers;
+        document.getElementById('todayUsers').textContent = stats.todayUsers;
+        document.getElementById('avgPasswordLength').textContent = stats.avgPasswordLength;
+        document.getElementById('strongPasswords').textContent = stats.strongPasswords;
     } catch (error) {
-        console.error('Error loading stats:', error);
+        console.error('Error updating stats:', error);
     }
 }
 
@@ -456,27 +481,20 @@ function confirmDeleteUser(name, fecha) {
     deleteUserAction(name, fecha);
 }
 
-// Actual delete function
+// Actual delete function (now using localStorage)
 async function deleteUserAction(name, fecha) {
     try {
-        const response = await fetch('/api/users', {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name, fecha })
-        });
-
-        const result = await response.json();
+        const storedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const filteredUsers = storedUsers.filter(user => 
+            !(user.name.trim() === name.trim() && user.fecha === fecha)
+        );
         
-        if (result.success) {
-            showNotification('Usuario eliminado correctamente', 'success');
-            loadUsers();
-            updateStats();
-        } else {
-            showNotification(result.error || 'Error al eliminar usuario', 'error');
-        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredUsers));
+        
+        showNotification('Usuario eliminado correctamente', 'success');
+        loadUsers();
+        updateStats();
     } catch (error) {
-        showNotification('Error de conexión', 'error');
+        showNotification('Error al eliminar usuario', 'error');
     }
 }
